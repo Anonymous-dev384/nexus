@@ -13,6 +13,8 @@ interface VerificationBadgesProps {
   earningVerified: boolean
   size?: "sm" | "md" | "lg"
   showLabels?: boolean
+  type?: string
+  className?: string
 }
 
 // 3D Verification Badge component
@@ -42,17 +44,20 @@ function VerificationBadge({ position = [0, 0, 0], color = "#3b82f6", icon = "ch
   )
 }
 
+// Export both as default and named export for compatibility
 export default function VerificationBadges({
   verified,
   earningVerified,
   size = "md",
   showLabels = false,
+  type,
+  className,
 }: VerificationBadgesProps) {
   // Determine height based on size
   const height = size === "sm" ? 60 : size === "md" ? 100 : 150
 
   return (
-    <div className="flex flex-col items-center">
+    <div className={`flex flex-col items-center ${className || ""}`}>
       <div style={{ height: `${height}px`, width: "100%" }} className="rounded-lg overflow-hidden">
         <Canvas shadows>
           <ambientLight intensity={0.5} />
@@ -86,3 +91,6 @@ export default function VerificationBadges({
     </div>
   )
 }
+
+// Named export for compatibility
+export { VerificationBadges }
