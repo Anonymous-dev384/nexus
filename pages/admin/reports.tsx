@@ -1,317 +1,462 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { AlertTriangle, CheckCircle, Eye, MoreHorizontal, XCircle } from "lucide-react"
 import { useAdminAuth } from "@/lib/admin-auth-provider"
+import AdminLayout from "@/layouts/admin-layout"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import { Loader } from "@/components/ui/loader"
-import AdminSidebar from "@/components/admin/admin-sidebar"
-import { Search, Filter, CheckCircle, XCircle, Eye, MessageSquare, User } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+
+// Mock data for reports
+const mockReports = Array.from({ length: 50 }).map((_, i) => ({
+  id: `report-${i + 1}`,
+  type: ["post", "comment", "user"][Math.floor(Math.random() * 3)],
+  targetId: `target-${Math.floor(Math.random() * 100) + 1}`,
+  targetContent: `This is the reported ${["post", "comment", "user"][Math.floor(Math.random() * 3)]} content that may violate our community guidelines.`,
+  reporterId: `user-${Math.floor(Math.random() * 10) + 1}`,
+  reporterName: `User ${Math.floor(Math.random() * 10) + 1}`,
+  reason: [
+    "Spam or misleading",
+    "Harassment or bullying",
+    "Hate speech",
+    "Violence or threatening content",
+    "Nudity or sexual content",
+    "Child abuse",
+    "Illegal activities",
+    "Impersonation",
+    "Copyright violation",
+    "Other",
+  ][Math.floor(Math.random() * 10)],
+  details: `Additional details about report ${i + 1}`,
+  status: ["pending", "reviewed", "resolved", "dismissed"][Math.floor(Math.random() * 4)],
+  createdAt: new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000).toISOString(),
+  updatedAt: new Date(Date.now() - Math.floor(Math.random() * 15) * 24 * 60 * 60 * 1000).toISOString(),
+}))
 
 export default function AdminReports() {
-  const { admin, hasPermission } = useAdminAuth()
-  const [reports, setReports] = useState([])
+  const { isAuthenticated, isAdmin, hasPermission } = useAdminAuth()
+  const { toast } = useToast()
+  const [activeTab, setActiveTab] = useState("all")
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [filter, setFilter] = useState("pending")
+  const [reportsData, setReportsData] = useState(mockReports)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [showDetailedView, setShowDetailedView] = useState(false)
+  const [selectedReport, setSelectedReport] = useState<any>(null)
+  const itemsPerPage = 10
 
   useEffect(() => {
-    // Fetch reports
-    const fetchReports = async () => {
-      try {
-        // In a real app, this would be an API call
-        // For now, we'll use mock data
-        setTimeout(() => {
-          setReports([
-            {
-              id: "1",
-              reporterId: "user1",
-              reporterName: "user1",
-              reportedContentId: "post1",
-              reportedContentType: "post",
-              reportedUserId: "user2",
-              reportedUserName: "user2",
-              reason: "Inappropriate content",
-              details: "This post contains offensive language",
-              status: "pending",
-              createdAt: "2023-05-15T10:30:00Z",
-              contentPreview: "This is the content that was reported...",
-            },
-            {
-              id: "2",
-              reporterId: "user3",
-              reporterName: "user3",
-              reportedContentId: "comment1",
-              reportedContentType: "comment",
-              reportedUserId: "user4",
-              reportedUserName: "user4",
-              reason: "Harassment",
-              details: "This user is harassing me in the comments",
-              status: "pending",
-              createdAt: "2023-05-16T14:20:00Z",
-              contentPreview: "This is the comment that was reported...",
-            },
-            {
-              id: "3",
-              reporterId: "user5",
-              reporterName: "user5",
-              reportedContentId: "user6",
-              reportedContentType: "user",
-              reportedUserId: "user6",
-              reportedUserName: "user6",
-              reason: "Spam",
-              details: "This user is spamming multiple threads",
-              status: "resolved",
-              createdAt: "2023-05-17T09:15:00Z",
-              resolution: "User warned",
-              resolvedBy: "admin1",
-              resolvedAt: "2023-05-17T11:30:00Z",
-            },
-            {
-              id: "4",
-              reporterId: "user7",
-              reporterName: "user7",
-              reportedContentId: "post2",
-              reportedContentType: "post",
-              reportedUserId: "user8",
-              reportedUserName: "user8",
-              reason: "Misinformation",
-              details: "This post contains false information",
-              status: "dismissed",
-              createdAt: "2023-05-18T16:45:00Z",
-              resolution: "Content reviewed and found to be acceptable",
-              resolvedBy: "admin2",
-              resolvedAt: "2023-05-18T17:30:00Z",
-            },
-          ])
-          setLoading(false)
-        }, 1000)
-      } catch (error) {
-        console.error("Error fetching reports:", error)
-        setLoading(false)
-      }
-    }
+    // Simulate loading data
+    const timer = setTimeout(() => {
+      setLoading(false)
+    }, 1000)
 
-    fetchReports()
+    return () => clearTimeout(timer)
   }, [])
 
-  const filteredReports = reports.filter((report) => {
-    const matchesSearch =
-      report.reporterName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.reportedUserName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.reason.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (report.details && report.details.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filterReports = () => {
+    let filtered = [...mockReports]
 
-    if (filter === "all") return matchesSearch
-    return matchesSearch && report.status === filter
-  })
+    // Filter by tab (status)
+    if (activeTab !== "all") {
+      filtered = filtered.filter((report) => report.status === activeTab)
+    }
 
-  const handleResolveReport = (reportId) => {
-    setReports(
-      reports.map((report) =>
-        report.id === reportId
-          ? {
-              ...report,
-              status: "resolved",
-              resolution: "Issue addressed",
-              resolvedBy: admin?.name || "admin",
-              resolvedAt: new Date().toISOString(),
-            }
-          : report,
-      ),
-    )
+    // Filter by search
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(
+        (report) =>
+          report.targetContent.toLowerCase().includes(query) ||
+          report.reason.toLowerCase().includes(query) ||
+          report.details.toLowerCase().includes(query) ||
+          report.reporterName.toLowerCase().includes(query),
+      )
+    }
+
+    return filtered
   }
 
-  const handleDismissReport = (reportId) => {
-    setReports(
-      reports.map((report) =>
-        report.id === reportId
-          ? {
-              ...report,
-              status: "dismissed",
-              resolution: "No action needed",
-              resolvedBy: admin?.name || "admin",
-              resolvedAt: new Date().toISOString(),
-            }
-          : report,
+  const handleViewReport = (report: any) => {
+    setSelectedReport(report)
+    setShowDetailedView(true)
+  }
+
+  const handleResolveReport = (reportId: string) => {
+    // Update report status
+    setReportsData((prevReports) =>
+      prevReports.map((report) =>
+        report.id === reportId ? { ...report, status: "resolved", updatedAt: new Date().toISOString() } : report,
       ),
+    )
+
+    toast({
+      title: "Report Resolved",
+      description: `Report ${reportId} has been marked as resolved.`,
+    })
+
+    // If in detailed view, update the selected report
+    if (selectedReport && selectedReport.id === reportId) {
+      setSelectedReport({ ...selectedReport, status: "resolved", updatedAt: new Date().toISOString() })
+    }
+  }
+
+  const handleDismissReport = (reportId: string) => {
+    // Update report status
+    setReportsData((prevReports) =>
+      prevReports.map((report) =>
+        report.id === reportId ? { ...report, status: "dismissed", updatedAt: new Date().toISOString() } : report,
+      ),
+    )
+
+    toast({
+      title: "Report Dismissed",
+      description: `Report ${reportId} has been dismissed.`,
+    })
+
+    // If in detailed view, update the selected report
+    if (selectedReport && selectedReport.id === reportId) {
+      setSelectedReport({ ...selectedReport, status: "dismissed", updatedAt: new Date().toISOString() })
+    }
+  }
+
+  const paginateData = (data: any[]) => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    return data.slice(startIndex, endIndex)
+  }
+
+  const filteredReports = filterReports()
+  const paginatedReports = paginateData(filteredReports)
+  const totalPages = Math.ceil(filteredReports.length / itemsPerPage)
+
+  if (!isAuthenticated || !isAdmin) {
+    return (
+      <AdminLayout>
+        <div className="flex h-full items-center justify-center">
+          <p className="text-lg">You do not have permission to access this page.</p>
+        </div>
+      </AdminLayout>
     )
   }
 
   if (loading) {
     return (
-      <div className="flex h-screen">
-        <AdminSidebar />
-        <div className="flex flex-1 items-center justify-center">
+      <AdminLayout>
+        <div className="flex h-full items-center justify-center">
           <Loader size="lg" />
         </div>
-      </div>
+      </AdminLayout>
     )
   }
 
   return (
-    <div className="flex h-screen">
-      <AdminSidebar />
-      <div className="flex-1 overflow-auto p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">Reports Management</h1>
-          <p className="text-gray-600 dark:text-gray-400">Review and handle user reports</p>
-        </div>
-
-        <div className="mb-6 flex flex-wrap items-center gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search reports..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 dark:border-gray-700 dark:bg-gray-800"
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-800"
-            >
-              <option value="all">All Reports</option>
-              <option value="pending">Pending</option>
-              <option value="resolved">Resolved</option>
-              <option value="dismissed">Dismissed</option>
-            </select>
+    <AdminLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Reports Management</h1>
+            <p className="text-muted-foreground">Review and manage user reported content</p>
           </div>
         </div>
 
-        <div className="space-y-4">
-          {filteredReports.length === 0 ? (
-            <div className="rounded-lg border border-gray-200 bg-white p-8 text-center dark:border-gray-700 dark:bg-gray-800">
-              <p className="text-gray-600 dark:text-gray-400">No reports found matching your criteria.</p>
-            </div>
-          ) : (
-            filteredReports.map((report) => (
-              <div
-                key={report.id}
-                className={`rounded-lg border ${
-                  report.status === "pending"
-                    ? "border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-900/20"
-                    : report.status === "resolved"
-                      ? "border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-900/20"
-                      : "border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
-                } p-4 shadow-sm`}
-              >
-                <div className="mb-4 flex items-center justify-between">
-                  <div>
-                    <span
-                      className={`inline-block rounded-full px-2 py-1 text-xs font-medium ${
-                        report.status === "pending"
-                          ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-                          : report.status === "resolved"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                            : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
-                      }`}
+        {showDetailedView && selectedReport ? (
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowDetailedView(false)
+                    setSelectedReport(null)
+                  }}
+                >
+                  Back to Reports
+                </Button>
+                <h2 className="text-xl font-semibold">Report Details</h2>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                {selectedReport.status === "pending" && (
+                  <>
+                    <Button
+                      size="sm"
+                      onClick={() => handleResolveReport(selectedReport.id)}
+                      className="bg-green-500 hover:bg-green-600"
                     >
-                      {report.status.charAt(0).toUpperCase() + report.status.slice(1)}
-                    </span>
-                    <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
-                      {new Date(report.createdAt).toLocaleString()}
-                    </span>
-                  </div>
-
-                  {report.status === "pending" && hasPermission("manageContent") && (
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleResolveReport(report.id)}
-                        className="rounded p-1 text-green-600 hover:bg-green-100 dark:text-green-400 dark:hover:bg-green-900/30"
-                        title="Resolve Report"
-                      >
-                        <CheckCircle className="h-5 w-5" />
-                      </button>
-                      <button
-                        onClick={() => handleDismissReport(report.id)}
-                        className="rounded p-1 text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900/30"
-                        title="Dismiss Report"
-                      >
-                        <XCircle className="h-5 w-5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <h3 className="mb-2 font-semibold text-gray-900 dark:text-white">Report Details</h3>
-                    <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
-                      <p className="text-sm">
-                        <span className="font-medium">Reason:</span> {report.reason}
-                      </p>
-                      {report.details && (
-                        <p className="text-sm">
-                          <span className="font-medium">Details:</span> {report.details}
-                        </p>
-                      )}
-                      <p className="text-sm">
-                        <span className="font-medium">Reported by:</span> {report.reporterName}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="mb-2 font-semibold text-gray-900 dark:text-white">Reported Content</h3>
-                    <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
-                      <p className="text-sm">
-                        <span className="font-medium">Type:</span>{" "}
-                        {report.reportedContentType.charAt(0).toUpperCase() + report.reportedContentType.slice(1)}
-                      </p>
-                      <p className="text-sm">
-                        <span className="font-medium">User:</span> {report.reportedUserName}
-                      </p>
-                      {report.contentPreview && (
-                        <p className="text-sm">
-                          <span className="font-medium">Preview:</span> {report.contentPreview}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {(report.status === "resolved" || report.status === "dismissed") && (
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
-                    <p className="text-sm">
-                      <span className="font-medium">Resolution:</span> {report.resolution}
-                    </p>
-                    <p className="text-sm">
-                      <span className="font-medium">Resolved by:</span> {report.resolvedBy}
-                    </p>
-                    <p className="text-sm">
-                      <span className="font-medium">Resolved at:</span> {new Date(report.resolvedAt).toLocaleString()}
-                    </p>
-                  </div>
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Resolve
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => handleDismissReport(selectedReport.id)}>
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Dismiss
+                    </Button>
+                  </>
                 )}
+              </div>
+            </div>
 
-                <div className="mt-4 flex space-x-2">
-                  {report.reportedContentType === "post" && (
-                    <button className="flex items-center rounded-lg border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800">
-                      <Eye className="mr-1 h-4 w-4" />
-                      View Post
-                    </button>
-                  )}
-                  {report.reportedContentType === "comment" && (
-                    <button className="flex items-center rounded-lg border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800">
-                      <MessageSquare className="mr-1 h-4 w-4" />
-                      View Comment
-                    </button>
-                  )}
-                  <button className="flex items-center rounded-lg border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800">
-                    <User className="mr-1 h-4 w-4" />
-                    View User
-                  </button>
+            <div className="space-y-8">
+              <div className="grid gap-6 md:grid-cols-2">
+                <div>
+                  <h3 className="text-lg font-medium mb-2">Report Information</h3>
+                  <div className="space-y-3 rounded-lg border p-4">
+                    <div>
+                      <span className="block text-sm font-medium text-muted-foreground">Report ID:</span>
+                      <span>{selectedReport.id}</span>
+                    </div>
+                    <div>
+                      <span className="block text-sm font-medium text-muted-foreground">Reported By:</span>
+                      <span>
+                        {selectedReport.reporterName} (ID: {selectedReport.reporterId})
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-sm font-medium text-muted-foreground">Date Reported:</span>
+                      <span>{new Date(selectedReport.createdAt).toLocaleString()}</span>
+                    </div>
+                    <div>
+                      <span className="block text-sm font-medium text-muted-foreground">Status:</span>
+                      <Badge
+                        className={
+                          selectedReport.status === "pending"
+                            ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+                            : selectedReport.status === "resolved"
+                              ? "bg-green-100 text-green-800 hover:bg-green-100"
+                              : selectedReport.status === "dismissed"
+                                ? "bg-gray-100 text-gray-800 hover:bg-gray-100"
+                                : "bg-blue-100 text-blue-800 hover:bg-blue-100"
+                        }
+                      >
+                        {selectedReport.status.charAt(0).toUpperCase() + selectedReport.status.slice(1)}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-medium mb-2">Reported Content</h3>
+                  <div className="space-y-3 rounded-lg border p-4">
+                    <div>
+                      <span className="block text-sm font-medium text-muted-foreground">Content Type:</span>
+                      <span className="capitalize">{selectedReport.type}</span>
+                    </div>
+                    <div>
+                      <span className="block text-sm font-medium text-muted-foreground">Content ID:</span>
+                      <span>{selectedReport.targetId}</span>
+                    </div>
+                    <div>
+                      <span className="block text-sm font-medium text-muted-foreground">Reason:</span>
+                      <span>{selectedReport.reason}</span>
+                    </div>
+                    <div>
+                      <Button size="sm" variant="outline">
+                        <Eye className="mr-2 h-4 w-4" />
+                        View Original Content
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            ))
-          )}
-        </div>
+
+              <div>
+                <h3 className="text-lg font-medium mb-2">Report Details</h3>
+                <div className="rounded-lg border p-4">
+                  <div className="mb-4">
+                    <span className="block text-sm font-medium text-muted-foreground mb-1">Reporter's Comment:</span>
+                    <p className="whitespace-pre-wrap">{selectedReport.details}</p>
+                  </div>
+                  <div>
+                    <span className="block text-sm font-medium text-muted-foreground mb-1">Reported Content:</span>
+                    <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-md">
+                      <p className="whitespace-pre-wrap">{selectedReport.targetContent}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-medium mb-2">Admin Notes</h3>
+                <div className="rounded-lg border p-4">
+                  <textarea
+                    className="w-full min-h-[120px] rounded-md border border-gray-300 p-2"
+                    placeholder="Add notes about this report and the actions taken..."
+                  />
+                  <div className="mt-2 flex justify-end">
+                    <Button size="sm">Save Notes</Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        ) : (
+          <>
+            <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
+              <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
+                <TabsList>
+                  <TabsTrigger value="all">All Reports</TabsTrigger>
+                  <TabsTrigger value="pending">Pending</TabsTrigger>
+                  <TabsTrigger value="resolved">Resolved</TabsTrigger>
+                  <TabsTrigger value="dismissed">Dismissed</TabsTrigger>
+                </TabsList>
+              </Tabs>
+
+              <div className="flex items-center space-x-2">
+                <Input
+                  placeholder="Search reports..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-60"
+                />
+              </div>
+            </div>
+
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Content</TableHead>
+                    <TableHead>Reason</TableHead>
+                    <TableHead>Reporter</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedReports.length > 0 ? (
+                    paginatedReports.map((report) => (
+                      <TableRow key={report.id}>
+                        <TableCell>
+                          {report.type === "post" ? (
+                            <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200">
+                              Post
+                            </Badge>
+                          ) : report.type === "comment" ? (
+                            <Badge variant="outline" className="bg-purple-50 text-purple-600 border-purple-200">
+                              Comment
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200">
+                              User
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="truncate max-w-[200px]">{report.targetContent}</div>
+                        </TableCell>
+                        <TableCell>{report.reason}</TableCell>
+                        <TableCell>{report.reporterName}</TableCell>
+                        <TableCell>{new Date(report.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          {report.status === "pending" ? (
+                            <Badge variant="outline" className="bg-yellow-50 text-yellow-600 border-yellow-200">
+                              Pending
+                            </Badge>
+                          ) : report.status === "resolved" ? (
+                            <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200">
+                              Resolved
+                            </Badge>
+                          ) : report.status === "dismissed" ? (
+                            <Badge variant="outline" className="bg-gray-50 text-gray-600 border-gray-200">
+                              Dismissed
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200">
+                              Reviewed
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleViewReport(report)}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Details
+                              </DropdownMenuItem>
+                              {report.status === "pending" && (
+                                <>
+                                  <DropdownMenuItem onClick={() => handleResolveReport(report.id)}>
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    Resolve
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleDismissReport(report.id)}>
+                                    <XCircle className="mr-2 h-4 w-4" />
+                                    Dismiss
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8">
+                        <div className="flex flex-col items-center justify-center text-center">
+                          <AlertTriangle className="h-10 w-10 text-muted-foreground mb-4" />
+                          <span className="text-muted-foreground">No reports found</span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+
+              {filteredReports.length > itemsPerPage && (
+                <div className="p-4 border-t">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                          disabled={currentPage === 1}
+                        />
+                      </PaginationItem>
+                      {Array.from({ length: totalPages }).map((_, i) => (
+                        <PaginationItem key={i}>
+                          <PaginationLink onClick={() => setCurrentPage(i + 1)} isActive={currentPage === i + 1}>
+                            {i + 1}
+                          </PaginationLink>
+                        </PaginationItem>
+                      ))}
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                          disabled={currentPage === totalPages}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </Card>
+          </>
+        )}
       </div>
-    </div>
+    </AdminLayout>
   )
 }
