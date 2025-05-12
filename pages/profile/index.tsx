@@ -11,7 +11,7 @@ import { doc, getDoc, collection, query, where, getDocs, orderBy, limit } from "
 import { Loader } from "../../components/ui/loader"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import PostCard from "../../components/post/post-card"
-import { VerificationBadges } from "../../components/profile/verification-badges"
+import VerificationBadges from "../../components/profile/verification-badges"
 
 export default function Profile() {
   const { user, signOut } = useAuth()
