@@ -1,10 +1,8 @@
 "use client"
 
-import { useState } from "react"
-
 import type React from "react"
 
-import { useEffect } from "react"
+import { useState, useEffect } from "react"
 import { Routes, Route, Navigate } from "react-router-dom"
 import { useAuth } from "@/lib/auth-provider"
 import { MainLayout } from "@/layouts/main-layout"
@@ -38,10 +36,7 @@ import AdminAds from "@/pages/admin/ads"
 import AdminAdmins from "@/pages/admin/admins"
 import AdminReports from "@/pages/admin/reports"
 import AdminAnalytics from "@/pages/admin/analytics"
-import AdminPremium from "@/pages/admin/premium"
-import AdminSuggestions from "@/pages/admin/suggestions"
 import AdminSettings from "@/pages/admin/settings"
-import AdminSystem from "@/pages/admin/system"
 
 // Loader
 import { Loader } from "@/components/ui/loader"
@@ -142,10 +137,7 @@ export default function AppRouter() {
       <Route path="/admin/admins" element={<ProtectedRoute element={<AdminAdmins />} />} />
       <Route path="/admin/reports" element={<ProtectedRoute element={<AdminReports />} />} />
       <Route path="/admin/analytics" element={<ProtectedRoute element={<AdminAnalytics />} />} />
-      <Route path="/admin/premium" element={<ProtectedRoute element={<AdminPremium />} />} />
-      <Route path="/admin/suggestions" element={<ProtectedRoute element={<AdminSuggestions />} />} />
       <Route path="/admin/settings" element={<ProtectedRoute element={<AdminSettings />} />} />
-      <Route path="/admin/system" element={<ProtectedRoute element={<AdminSystem />} />} />
 
       {/* 404 route */}
       <Route path="*" element={<NotFound />} />
