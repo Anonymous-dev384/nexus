@@ -35,7 +35,7 @@ import {
   limit as firestoreLimit,
 } from "firebase/firestore"
 import { Loader } from "../components/ui/loader"
-import { VerificationBadges } from "../components/profile/verification-badges"
+import VerificationBadges from "../components/profile/verification-badges"
 import {
   DropdownMenu,
   DropdownMenuContent,
