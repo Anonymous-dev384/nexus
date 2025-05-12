@@ -1,300 +1,571 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { MessageSquare, MoreHorizontal, CheckCircle, XCircle, Filter, Eye, Edit, Trash2 } from "lucide-react"
 import { useAdminAuth } from "@/lib/admin-auth-provider"
+import AdminLayout from "@/layouts/admin-layout"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import { Loader } from "@/components/ui/loader"
-import AdminSidebar from "@/components/admin/admin-sidebar"
-import { Search, Filter, Trash2, Eye, CheckCircle, Flag } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+
+// Mock data - In a real application, this would come from an API
+const mockPosts = Array.from({ length: 35 }).map((_, i) => ({
+  id: `post-${i + 1}`,
+  title: `Post Title ${i + 1}`,
+  authorId: `user-${Math.floor(Math.random() * 10) + 1}`,
+  authorName: `User ${Math.floor(Math.random() * 10) + 1}`,
+  authorUsername: `user${Math.floor(Math.random() * 10) + 1}`,
+  content: `This is the content of post ${i + 1}. It might contain text, images, videos, or other media.`,
+  createdAt: new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000).toISOString(),
+  likeCount: Math.floor(Math.random() * 100),
+  commentCount: Math.floor(Math.random() * 20),
+  status: ["published", "flagged", "removed"][Math.floor(Math.random() * 3)],
+  reportCount: Math.floor(Math.random() * 5),
+}))
+
+const mockComments = Array.from({ length: 50 }).map((_, i) => ({
+  id: `comment-${i + 1}`,
+  postId: `post-${Math.floor(Math.random() * 35) + 1}`,
+  authorId: `user-${Math.floor(Math.random() * 10) + 1}`,
+  authorName: `User ${Math.floor(Math.random() * 10) + 1}`,
+  authorUsername: `user${Math.floor(Math.random() * 10) + 1}`,
+  content: `This is comment ${i + 1}. It might be a reply to the post or another comment.`,
+  createdAt: new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000).toISOString(),
+  likeCount: Math.floor(Math.random() * 20),
+  status: ["published", "flagged", "removed"][Math.floor(Math.random() * 3)],
+  reportCount: Math.floor(Math.random() * 3),
+}))
 
 export default function AdminContent() {
-  const { admin, hasPermission } = useAdminAuth()
-  const [content, setContent] = useState([])
+  const { isAuthenticated, isAdmin, hasPermission } = useAdminAuth()
+  const { toast } = useToast()
+  const [activeTab, setActiveTab] = useState("posts")
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [filter, setFilter] = useState("all")
-  const [contentType, setContentType] = useState("posts")
+  const [postsData, setPostsData] = useState(mockPosts)
+  const [commentsData, setCommentsData] = useState(mockComments)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [selectedItems, setSelectedItems] = useState<string[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
 
   useEffect(() => {
-    // Fetch content
-    const fetchContent = async () => {
-      try {
-        // In a real app, this would be an API call
-        // For now, we'll use mock data
-        setTimeout(() => {
-          if (contentType === "posts") {
-            setContent([
-              {
-                id: "1",
-                type: "post",
-                title: "First post",
-                content: "This is the first post content",
-                author: "user1",
-                authorId: "1",
-                createdAt: "2023-05-15T10:30:00Z",
-                status: "active",
-                reportCount: 0,
-                likes: 24,
-                comments: 5,
-              },
-              {
-                id: "2",
-                type: "post",
-                title: "Reported post",
-                content: "This post has been reported multiple times",
-                author: "user2",
-                authorId: "2",
-                createdAt: "2023-05-16T14:20:00Z",
-                status: "flagged",
-                reportCount: 3,
-                likes: 2,
-                comments: 12,
-              },
-              {
-                id: "3",
-                type: "post",
-                title: "Hidden post",
-                content: "This post has been hidden by moderators",
-                author: "user3",
-                authorId: "3",
-                createdAt: "2023-05-17T09:15:00Z",
-                status: "hidden",
-                reportCount: 5,
-                likes: 0,
-                comments: 0,
-              },
-            ])
-          } else if (contentType === "comments") {
-            setContent([
-              {
-                id: "1",
-                type: "comment",
-                content: "Great post!",
-                author: "user1",
-                authorId: "1",
-                postId: "1",
-                createdAt: "2023-05-15T11:30:00Z",
-                status: "active",
-                reportCount: 0,
-                likes: 5,
-              },
-              {
-                id: "2",
-                type: "comment",
-                content: "This comment has been reported",
-                author: "user2",
-                authorId: "2",
-                postId: "1",
-                createdAt: "2023-05-16T15:20:00Z",
-                status: "flagged",
-                reportCount: 2,
-                likes: 0,
-              },
-              {
-                id: "3",
-                type: "comment",
-                content: "This comment has been hidden",
-                author: "user3",
-                authorId: "3",
-                postId: "2",
-                createdAt: "2023-05-17T10:15:00Z",
-                status: "hidden",
-                reportCount: 4,
-                likes: 0,
-              },
-            ])
-          }
-          setLoading(false)
-        }, 1000)
-      } catch (error) {
-        console.error("Error fetching content:", error)
-        setLoading(false)
-      }
+    // Simulate loading data
+    const timer = setTimeout(() => {
+      setLoading(false)
+    }, 1000)
+
+    return () => clearTimeout(timer)
+  }, [])
+
+  const filterPosts = () => {
+    let filtered = [...mockPosts]
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(
+        (post) =>
+          post.title.toLowerCase().includes(query) ||
+          post.authorName.toLowerCase().includes(query) ||
+          post.authorUsername.toLowerCase().includes(query) ||
+          post.content.toLowerCase().includes(query),
+      )
     }
 
-    fetchContent()
-  }, [contentType])
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((post) => post.status === statusFilter)
+    }
 
-  const filteredContent = content.filter((item) => {
-    const matchesSearch =
-      item.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.title && item.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      item.author.toLowerCase().includes(searchTerm.toLowerCase())
-
-    if (filter === "all") return matchesSearch
-    if (filter === "reported") return matchesSearch && item.reportCount > 0
-    if (filter === "hidden") return matchesSearch && item.status === "hidden"
-    if (filter === "flagged") return matchesSearch && item.status === "flagged"
-
-    return matchesSearch
-  })
-
-  const handleApproveContent = (contentId) => {
-    setContent(content.map((item) => (item.id === contentId ? { ...item, status: "active", reportCount: 0 } : item)))
+    return filtered
   }
 
-  const handleHideContent = (contentId) => {
-    setContent(
-      content.map((item) =>
-        item.id === contentId ? { ...item, status: item.status === "hidden" ? "active" : "hidden" } : item,
-      ),
+  const filterComments = () => {
+    let filtered = [...mockComments]
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(
+        (comment) =>
+          comment.content.toLowerCase().includes(query) ||
+          comment.authorName.toLowerCase().includes(query) ||
+          comment.authorUsername.toLowerCase().includes(query),
+      )
+    }
+
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((comment) => comment.status === statusFilter)
+    }
+
+    return filtered
+  }
+
+  const handleSelectItem = (id: string) => {
+    setSelectedItems((prevSelected) =>
+      prevSelected.includes(id) ? prevSelected.filter((item) => item !== id) : [...prevSelected, id],
     )
   }
 
-  const handleDeleteContent = (contentId) => {
-    setContent(content.filter((item) => item.id !== contentId))
+  const handleSelectAll = (items: any[]) => {
+    const currentPageItemIds = items.map((item) => item.id)
+
+    if (selectedItems.length === currentPageItemIds.length) {
+      // If all items on the current page are selected, deselect them
+      setSelectedItems([])
+    } else {
+      // Otherwise, select all items on the current page
+      setSelectedItems(currentPageItemIds)
+    }
+  }
+
+  const handleViewItem = (id: string, type: "post" | "comment") => {
+    toast({
+      title: "View Content",
+      description: `Viewing ${type} ${id}`,
+    })
+  }
+
+  const handleEditItem = (id: string, type: "post" | "comment") => {
+    toast({
+      title: "Edit Content",
+      description: `Editing ${type} ${id}`,
+    })
+  }
+
+  const handleRemoveItem = (id: string, type: "post" | "comment") => {
+    if (window.confirm(`Are you sure you want to remove this ${type}? This action cannot be undone.`)) {
+      toast({
+        title: "Remove Content",
+        description: `Removed ${type} ${id}`,
+      })
+
+      if (type === "post") {
+        setPostsData((prevPosts) => prevPosts.filter((post) => post.id !== id))
+      } else {
+        setCommentsData((prevComments) => prevComments.filter((comment) => comment.id !== id))
+      }
+
+      setSelectedItems((prevSelected) => prevSelected.filter((item) => item !== id))
+    }
+  }
+
+  const handleBulkAction = (action: "approve" | "remove") => {
+    if (selectedItems.length === 0) return
+
+    if (action === "approve") {
+      toast({
+        title: "Approve Content",
+        description: `Approved ${selectedItems.length} items`,
+      })
+      // In a real application, you would make an API call to approve the selected items
+    } else if (action === "remove") {
+      if (
+        window.confirm(`Are you sure you want to remove ${selectedItems.length} items? This action cannot be undone.`)
+      ) {
+        toast({
+          title: "Remove Content",
+          description: `Removed ${selectedItems.length} items`,
+        })
+
+        if (activeTab === "posts") {
+          setPostsData((prevPosts) => prevPosts.filter((post) => !selectedItems.includes(post.id)))
+        } else {
+          setCommentsData((prevComments) => prevComments.filter((comment) => !selectedItems.includes(comment.id)))
+        }
+
+        setSelectedItems([])
+      }
+    }
+  }
+
+  const paginateData = (data: any[]) => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    return data.slice(startIndex, endIndex)
+  }
+
+  const filteredPosts = filterPosts()
+  const filteredComments = filterComments()
+  const paginatedPosts = paginateData(filteredPosts)
+  const paginatedComments = paginateData(filteredComments)
+  const totalPages = Math.ceil((activeTab === "posts" ? filteredPosts.length : filteredComments.length) / itemsPerPage)
+
+  if (!isAuthenticated || !isAdmin) {
+    return (
+      <AdminLayout>
+        <div className="flex h-full items-center justify-center">
+          <p className="text-lg">You do not have permission to access this page.</p>
+        </div>
+      </AdminLayout>
+    )
   }
 
   if (loading) {
     return (
-      <div className="flex h-screen">
-        <AdminSidebar />
-        <div className="flex flex-1 items-center justify-center">
+      <AdminLayout>
+        <div className="flex h-full items-center justify-center">
           <Loader size="lg" />
         </div>
-      </div>
+      </AdminLayout>
     )
   }
 
   return (
-    <div className="flex h-screen">
-      <AdminSidebar />
-      <div className="flex-1 overflow-auto p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">Content Moderation</h1>
-          <p className="text-gray-600 dark:text-gray-400">Review and moderate user-generated content</p>
-        </div>
-
-        <div className="mb-6 flex flex-wrap items-center gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search content..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 dark:border-gray-700 dark:bg-gray-800"
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-800"
-            >
-              <option value="all">All Content</option>
-              <option value="reported">Reported</option>
-              <option value="flagged">Flagged</option>
-              <option value="hidden">Hidden</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <select
-              value={contentType}
-              onChange={(e) => setContentType(e.target.value)}
-              className="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-800"
-            >
-              <option value="posts">Posts</option>
-              <option value="comments">Comments</option>
-            </select>
+    <AdminLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Content Management</h1>
+            <p className="text-muted-foreground">Manage posts, comments, and reported content</p>
           </div>
         </div>
 
-        <div className="space-y-4">
-          {filteredContent.length === 0 ? (
-            <div className="rounded-lg border border-gray-200 bg-white p-8 text-center dark:border-gray-700 dark:bg-gray-800">
-              <p className="text-gray-600 dark:text-gray-400">No content found matching your criteria.</p>
-            </div>
-          ) : (
-            filteredContent.map((item) => (
-              <div
-                key={item.id}
-                className={`rounded-lg border ${
-                  item.status === "flagged"
-                    ? "border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-900/20"
-                    : item.status === "hidden"
-                      ? "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-900/20"
-                      : "border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
-                } p-4 shadow-sm`}
+        <Tabs defaultValue="posts" className="space-y-4" onValueChange={setActiveTab}>
+          <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
+            <TabsList>
+              <TabsTrigger value="posts" className="flex items-center">
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Posts
+              </TabsTrigger>
+              <TabsTrigger value="comments" className="flex items-center">
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Comments
+              </TabsTrigger>
+            </TabsList>
+
+            <div className="flex items-center space-x-2">
+              <Input
+                placeholder="Search content..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-60"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setStatusFilter(statusFilter === "all" ? "flagged" : "all")}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="mb-1 flex items-center">
-                      <span className="font-medium text-gray-900 dark:text-white">{item.author}</span>
-                      <span className="mx-2 text-gray-500 dark:text-gray-400">•</span>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {new Date(item.createdAt).toLocaleString()}
-                      </span>
-                      {item.reportCount > 0 && (
-                        <>
-                          <span className="mx-2 text-gray-500 dark:text-gray-400">•</span>
-                          <span className="flex items-center text-sm text-red-500 dark:text-red-400">
-                            <Flag className="mr-1 h-4 w-4" />
-                            {item.reportCount} reports
-                          </span>
-                        </>
-                      )}
-                    </div>
+                <Filter className="mr-2 h-4 w-4" />
+                {statusFilter === "all" ? "Show Flagged" : "Show All"}
+              </Button>
+            </div>
+          </div>
 
-                    {item.type === "post" && item.title && (
-                      <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">{item.title}</h3>
-                    )}
-
-                    <p className="text-gray-800 dark:text-gray-200">{item.content}</p>
-
-                    <div className="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-400">
-                      <span className="flex items-center">
-                        <span className="mr-1">👍</span>
-                        {item.likes}
-                      </span>
-                      {item.type === "post" && (
-                        <span className="ml-4 flex items-center">
-                          <span className="mr-1">💬</span>
-                          {item.comments}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="ml-4 flex space-x-2">
-                    {hasPermission("manageContent") && (
-                      <>
-                        <button
-                          onClick={() => handleApproveContent(item.id)}
-                          className="rounded p-1 text-green-600 hover:bg-green-100 dark:text-green-400 dark:hover:bg-green-900/30"
-                          title="Approve Content"
-                        >
-                          <CheckCircle className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => handleHideContent(item.id)}
-                          className={`rounded p-1 ${
-                            item.status === "hidden"
-                              ? "text-blue-600 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900/30"
-                              : "text-yellow-600 hover:bg-yellow-100 dark:text-yellow-400 dark:hover:bg-yellow-900/30"
-                          }`}
-                          title={item.status === "hidden" ? "Unhide Content" : "Hide Content"}
-                        >
-                          <Eye className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteContent(item.id)}
-                          className="rounded p-1 text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900/30"
-                          title="Delete Content"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
-                      </>
-                    )}
+          <TabsContent value="posts" className="space-y-4">
+            <Card>
+              {selectedItems.length > 0 && (
+                <div className="flex items-center justify-between bg-muted p-4">
+                  <span>{selectedItems.length} item(s) selected</span>
+                  <div className="flex space-x-2">
+                    <Button size="sm" variant="outline" onClick={() => handleBulkAction("approve")}>
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Approve
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => handleBulkAction("remove")}>
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Remove
+                    </Button>
                   </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
+              )}
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={paginatedPosts.length > 0 && selectedItems.length === paginatedPosts.length}
+                        onCheckedChange={() => handleSelectAll(paginatedPosts)}
+                      />
+                    </TableHead>
+                    <TableHead>Content</TableHead>
+                    <TableHead>Author</TableHead>
+                    <TableHead>Stats</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedPosts.length > 0 ? (
+                    paginatedPosts.map((post) => (
+                      <TableRow key={post.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedItems.includes(post.id)}
+                            onCheckedChange={() => handleSelectItem(post.id)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{post.title}</span>
+                            <span className="truncate text-sm text-muted-foreground max-w-xs">{post.content}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(post.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span>{post.authorName}</span>
+                            <span className="text-sm text-muted-foreground">@{post.authorUsername}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span>{post.likeCount} likes</span>
+                            <span>{post.commentCount} comments</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {post.status === "published" ? (
+                            <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200">
+                              Published
+                            </Badge>
+                          ) : post.status === "flagged" ? (
+                            <Badge variant="outline" className="bg-yellow-50 text-yellow-600 border-yellow-200">
+                              Flagged ({post.reportCount})
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200">
+                              Removed
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleViewItem(post.id, "post")}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEditItem(post.id, "post")}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleRemoveItem(post.id, "post")}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Remove
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8">
+                        <div className="flex flex-col items-center justify-center text-center">
+                          <MessageSquare className="h-10 w-10 text-muted-foreground mb-4" />
+                          <span className="text-muted-foreground">No posts found</span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+
+              {filteredPosts.length > itemsPerPage && (
+                <div className="p-4 border-t">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                          disabled={currentPage === 1}
+                        />
+                      </PaginationItem>
+                      {Array.from({ length: totalPages }).map((_, i) => (
+                        <PaginationItem key={i}>
+                          <PaginationLink onClick={() => setCurrentPage(i + 1)} isActive={currentPage === i + 1}>
+                            {i + 1}
+                          </PaginationLink>
+                        </PaginationItem>
+                      ))}
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                          disabled={currentPage === totalPages}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="comments" className="space-y-4">
+            <Card>
+              {selectedItems.length > 0 && (
+                <div className="flex items-center justify-between bg-muted p-4">
+                  <span>{selectedItems.length} item(s) selected</span>
+                  <div className="flex space-x-2">
+                    <Button size="sm" variant="outline" onClick={() => handleBulkAction("approve")}>
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Approve
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => handleBulkAction("remove")}>
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={paginatedComments.length > 0 && selectedItems.length === paginatedComments.length}
+                        onCheckedChange={() => handleSelectAll(paginatedComments)}
+                      />
+                    </TableHead>
+                    <TableHead>Content</TableHead>
+                    <TableHead>Author</TableHead>
+                    <TableHead>Stats</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedComments.length > 0 ? (
+                    paginatedComments.map((comment) => (
+                      <TableRow key={comment.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedItems.includes(comment.id)}
+                            onCheckedChange={() => handleSelectItem(comment.id)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="truncate max-w-xs">{comment.content}</span>
+                            <span className="text-xs text-muted-foreground">
+                              Post: {comment.postId} • {new Date(comment.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span>{comment.authorName}</span>
+                            <span className="text-sm text-muted-foreground">@{comment.authorUsername}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span>{comment.likeCount} likes</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {comment.status === "published" ? (
+                            <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200">
+                              Published
+                            </Badge>
+                          ) : comment.status === "flagged" ? (
+                            <Badge variant="outline" className="bg-yellow-50 text-yellow-600 border-yellow-200">
+                              Flagged ({comment.reportCount})
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200">
+                              Removed
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleViewItem(comment.id, "comment")}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEditItem(comment.id, "comment")}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleRemoveItem(comment.id, "comment")}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Remove
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8">
+                        <div className="flex flex-col items-center justify-center text-center">
+                          <MessageSquare className="h-10 w-10 text-muted-foreground mb-4" />
+                          <span className="text-muted-foreground">No comments found</span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+
+              {filteredComments.length > itemsPerPage && (
+                <div className="p-4 border-t">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                          disabled={currentPage === 1}
+                        />
+                      </PaginationItem>
+                      {Array.from({ length: totalPages }).map((_, i) => (
+                        <PaginationItem key={i}>
+                          <PaginationLink onClick={() => setCurrentPage(i + 1)} isActive={currentPage === i + 1}>
+                            {i + 1}
+                          </PaginationLink>
+                        </PaginationItem>
+                      ))}
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                          disabled={currentPage === totalPages}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
-    </div>
+    </AdminLayout>
   )
 }
