@@ -12,6 +12,8 @@ import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Award, Trophy, Star, Flame, Zap, Target, Calendar, Lock, CheckCircle2, Users, Share2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { isSupabaseConfigured } from "@/lib/supabase"
+import type { JSX } from "react"
 
 // Define achievement category types
 type AchievementCategory = "engagement" | "social" | "content" | "streaks" | "special"
@@ -78,6 +80,7 @@ export default function Achievements() {
   const [loading, setLoading] = useState(true)
   const [achievements, setAchievements] = useState<Achievement[]>([])
   const [activeCategory, setActiveCategory] = useState<AchievementCategory | "all">("all")
+  const [supabaseAvailable] = useState(isSupabaseConfigured())
 
   const isOwnProfile = !username || user?.username === username
 
@@ -124,16 +127,14 @@ export default function Achievements() {
     }
 
     fetchUserData()
-  }, [username, user, profileUser, toast])
+  }, [username, user, profileUser, toast, supabaseAvailable])
 
   const fetchAchievements = async (userId: string) => {
     try {
-      // Simulated API call - In production, replace with actual API call
-      // const response = await axios.get(`/api/achievements/${userId}`)
-      // setAchievements(response.data)
+      // Always use mock data for now to avoid Supabase issues
+      // In production, you would check supabaseAvailable and use the API if available
 
       // Simulating API response with mock data
-      // In a real app, this would come from your backend
       setTimeout(() => {
         const mockAchievements: Achievement[] = [
           {
