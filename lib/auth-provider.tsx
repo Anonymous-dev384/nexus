@@ -2,9 +2,12 @@
 
 import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
+import { auth, isFirebaseAvailable } from "./firebase"
+import { onAuthStateChanged, type User } from "firebase/auth"
+import { Loader } from "@/components/ui/loader"
+import type { Session } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
-import type { User, Session } from "@supabase/supabase-js"
 
 export type UserRole = "user" | "verified" | "premium" | "admin"
 
@@ -69,6 +72,7 @@ interface AuthContextType {
   profile: UserProfile | null
   session: Session | null
   loading: boolean
+  isFirebaseReady: boolean
   signUp: (email: string, password: string, username: string, referralCode?: string) => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
   signInWithGoogle: (referralCode?: string) => Promise<void>
@@ -84,22 +88,60 @@ interface AuthContextType {
   claimReferralReward: (rewardId: string) => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextType | null>(null)
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  profile: null,
+  session: null,
+  loading: true,
+  isFirebaseReady: false,
+  signUp: async () => {},
+  signIn: async () => {},
+  signInWithGoogle: async () => {},
+  signInWithDiscord: () => {},
+  handleDiscordCallback: async () => {},
+  logout: async () => {},
+  updateUserProfile: async () => {},
+  updateUserStatus: async () => {},
+  giftPremium: async () => {},
+  checkAchievements: async () => {},
+  generateReferralCode: async () => "",
+  getReferralStats: async () => {},
+  claimReferralReward: async () => {},
+})
 
-export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider")
-  }
-  return context
-}
+export const useAuth = () => useContext(AuthContext)
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isFirebaseReady, setIsFirebaseReady] = useState(false)
   const { toast } = useToast()
+
+  useEffect(() => {
+    // Check if Firebase is available
+    if (!isFirebaseAvailable()) {
+      console.log("Firebase not available, skipping auth initialization")
+      setLoading(false)
+      return () => {}
+    }
+
+    setIsFirebaseReady(true)
+
+    try {
+      const unsubscribe = onAuthStateChanged(auth, (user) => {
+        setUser(user)
+        setLoading(false)
+      })
+
+      return () => unsubscribe()
+    } catch (error) {
+      console.error("Error setting up auth state listener:", error)
+      setLoading(false)
+      return () => {}
+    }
+  }, [])
 
   // Initialize user profile in database
   const initializeUserProfile = async (user: User, username = "", referralCode?: string) => {
@@ -108,17 +150,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data: existingProfile, error: fetchError } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", user.id)
+        .eq("id", user.uid)
         .single()
 
       if (fetchError || !existingProfile) {
         // Create new user profile
         const newProfile: Partial<UserProfile> = {
-          id: user.id,
+          id: user.uid,
           username: username || user.email?.split("@")[0] || `user${Math.floor(Math.random() * 10000)}`,
           email: user.email || "",
           display_name: username || user.email?.split("@")[0] || "New User",
-          avatar_url: user.user_metadata?.avatar_url || `/placeholder.svg?height=200&width=200`,
+          avatar_url: user.photoURL || `/placeholder.svg?height=200&width=200`,
           bio: "Hello, I'm new to NexusSphere!",
           role: "user",
           verification_status: {
@@ -186,7 +228,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         try {
           const { data: referralData, error: referralError } = await supabase
             .from("referrals")
-            .insert([{ user_id: user.id, code: generateRandomCode(8) }])
+            .insert([{ user_id: user.uid, code: generateRandomCode(8) }])
             .select()
 
           if (!referralError && referralData) {
@@ -203,7 +245,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setProfile(newProfile as UserProfile)
       } else {
         // User exists, update their status to online
-        await supabase.from("profiles").update({ status: "online" }).eq("id", user.id)
+        await supabase.from("profiles").update({ status: "online" }).eq("id", user.uid)
 
         setProfile({ ...existingProfile, status: "online" })
       }
@@ -788,11 +830,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [])
 
+  // Show loading indicator while checking auth state
+  if (loading && isFirebaseReady) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader size="large" />
+      </div>
+    )
+  }
+
   const value = {
     user,
     profile,
     session,
     loading,
+    isFirebaseReady,
     signUp,
     signIn,
     signInWithGoogle,
