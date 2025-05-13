@@ -3,39 +3,73 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { MainLayout } from "../layouts/main-layout"
-import { collection, query, getDocs, orderBy, limit } from "firebase/firestore"
-import { db } from "../lib/firebase"
+import { collection, query, getDocs, orderBy, limit as firestoreLimit } from "firebase/firestore"
+import { db, isFirebaseAvailable } from "../lib/firebase"
 import { PostCard } from "../components/post/post-card"
 import { Loader } from "../components/ui/loader"
-import { Search, TrendingUp, Zap, Users, Hash } from "lucide-react"
+import { Search, TrendingUp, Zap, Users, Hash, AlertTriangle } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent } from "@/components/ui/card"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+
+// Mock data for when Firebase is not available
+const MOCK_POSTS = [
+  {
+    id: "mock-1",
+    content: "This is a mock post for development and build purposes.",
+    author: { displayName: "Demo User", photoURL: "/placeholder.svg?height=40&width=40" },
+    createdAt: { toDate: () => new Date() },
+    voteCount: 42,
+    commentCount: 7,
+    tags: ["#demo", "#development"],
+  },
+  {
+    id: "mock-2",
+    content: "Another mock post showing how the UI looks without Firebase.",
+    author: { displayName: "Test Account", photoURL: "/placeholder.svg?height=40&width=40" },
+    createdAt: { toDate: () => new Date(Date.now() - 3600000) },
+    voteCount: 15,
+    commentCount: 3,
+    tags: ["#test", "#ui"],
+  },
+]
 
 export default function Explore() {
   const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("trending")
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchPosts = async () => {
       setLoading(true)
+      setError(null)
+
       try {
+        // Check if Firebase is available
+        if (!isFirebaseAvailable()) {
+          console.log("Firebase not available, using mock data")
+          setPosts(MOCK_POSTS)
+          setLoading(false)
+          return
+        }
+
         let postsQuery
 
         switch (activeTab) {
           case "trending":
-            postsQuery = query(collection(db, "posts"), orderBy("voteCount", "desc"), limit(20))
+            postsQuery = query(collection(db, "posts"), orderBy("voteCount", "desc"), firestoreLimit(20))
             break
           case "latest":
-            postsQuery = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(20))
+            postsQuery = query(collection(db, "posts"), orderBy("createdAt", "desc"), firestoreLimit(20))
             break
           case "popular":
-            postsQuery = query(collection(db, "posts"), orderBy("commentCount", "desc"), limit(20))
+            postsQuery = query(collection(db, "posts"), orderBy("commentCount", "desc"), firestoreLimit(20))
             break
           default:
-            postsQuery = query(collection(db, "posts"), orderBy("voteCount", "desc"), limit(20))
+            postsQuery = query(collection(db, "posts"), orderBy("voteCount", "desc"), firestoreLimit(20))
         }
 
         const querySnapshot = await getDocs(postsQuery)
@@ -57,6 +91,9 @@ export default function Explore() {
         setPosts(filteredPosts)
       } catch (error) {
         console.error("Error fetching posts:", error)
+        setError("Failed to load posts. Please try again later.")
+        // Fallback to mock data in case of error
+        setPosts(MOCK_POSTS)
       } finally {
         setLoading(false)
       }
@@ -84,6 +121,22 @@ export default function Explore() {
             />
           </div>
         </div>
+
+        {!isFirebaseAvailable() && (
+          <Alert className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Development Mode</AlertTitle>
+            <AlertDescription>Firebase is not configured. Showing mock data for development purposes.</AlertDescription>
+          </Alert>
+        )}
+
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         <Tabs defaultValue="trending" className="mb-6" onValueChange={setActiveTab}>
           <TabsList className="grid grid-cols-3 mb-4">
